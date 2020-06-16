@@ -69,7 +69,7 @@ void getAbsPath(char *Path, char *ret, bool isDir)
     }
     if (!isDir)
     {
-        ret[strlen(ret) - 1] = 0;
+        ret[strlen(ret) + 1] = '\0';
     }
     for (int i = 0; ori[i];
          free(ori[i++]))
@@ -93,15 +93,15 @@ int getFreeOpen()
     }
 }
 
-void initDirFCB(pFcb dirFCB, char *name, unsigned short date, unsigned short time, int index)
+void initDirFCB(pFcb File, char *name, unsigned short date, unsigned short time, int index)
 {
-    strcpy(dirFCB->filename, name);
-    dirFCB->attribute = 0;
-    dirFCB->date = date;
-    dirFCB->time = time;
-    dirFCB->length = 0;
-    dirFCB->free = located_fcb;
-    dirFCB->fatIndex = index;
+    strcpy(File->filename, name);
+    File->attribute = 0;
+    File->date = date;
+    File->time = time;
+    File->length = 0;
+    File->free = located_fcb;
+    File->fatIndex = index;
 }
 
 void initNormalFCB(pFcb fileFCB, char *name, char *exname, unsigned short date, unsigned short time,
@@ -185,8 +185,11 @@ void splitPath(char *Path, char *dir, char *filename, char *exname)
     {
         getAbsPath(Path, path, 0);
         char *final = strrchr(path, '/');
-        memcpy(dir, path, final - path + 1);
-        dir[final - path + 1] = 0;
+        if (final != NULL)
+        {
+            memcpy(dir, path, final - path + 1);
+            dir[final - path + 1] = 0;
+        }
     }
     char *final = strrchr(Path, '/');
     if (!final)
@@ -201,6 +204,7 @@ void splitPath(char *Path, char *dir, char *filename, char *exname)
     }
     char *ex = NULL;
     int length = strlen(final);
+
     if (exname && length > 2)
     {
         if (ex = strchr(final, '.'))
@@ -209,6 +213,8 @@ void splitPath(char *Path, char *dir, char *filename, char *exname)
             length -= (ex - final + 1);
         }
     }
+    if (ex == NULL)
+        length = -1;
     memset(filename, 0, 8);
     memcpy(filename, final, strlen(final) - length - 1);
 }
@@ -548,7 +554,7 @@ void my_create(char *filename)
         pFcb fileFCB = FindFreeFcb(parentDir);
         getDateAndTime(&date, &time);
         splitPath(filename, NULL, tempName, exname);
-        printf("%s\n", tempName);
+        //printf("%s\n", tempName);
         initNormalFCB(fileFCB, tempName, exname, date, time, 0, fatIndex);
         parentDir->length += sizeof(fcb);
         if (parentDir->fatIndex == 5)
@@ -604,7 +610,6 @@ void my_open(char *filename)
     char path[80] = {
         0,
     };
-    getAbsPath(filename, path, false);
     char dir[80] = {
         0,
     },
@@ -615,6 +620,7 @@ void my_open(char *filename)
              0,
          };
     pFcb File;
+    getAbsPath(filename, path, false);
     splitPath(path, dir, name, exname);
     for (int i = 0; i < MAXOPENFILE; i++)
     {
@@ -633,26 +639,47 @@ void my_open(char *filename)
         printf("No such file!\n");
         return;
     }
-    int index = getFreeOpen();// 寻找空闲文件描述符
-    printf("Now get fd:%d\n", index);
+    int index = getFreeOpen(); // 寻找空闲文件描述符
+    printf("fd: %d\n", index);
     FcbToUser(File, &openfilelist[index]);
     strcpy(openfilelist[index].dir, dir);
 }
+void my_close(int fd)
+{
+    pFcb File, fileFCB;
+    char path[80] = {0, };
+    if(!openfilelist[fd].topenfile)
+    {
+        printf("This fd is invalid!\n");
+        return;
+    }
+    strcpy(path, openfilelist[fd].dir);
+    strcat(path, openfilelist[fd].filename);
+    printf("%s",path);
+    if(openfilelist[fd].exname[0])
+    {
+        strcat(path, ".");
+        strcat(path, openfilelist[fd].exname);
+    }
+    fileFCB = FindFcb(path, &File);
+    if(!fileFCB)
+    {
+        printf("Can not find file\n");
+        return;
+    }
+    if(openfilelist[fd].fcbstate) fileFCB->length = openfilelist[fd].length;
+    memset(&openfilelist[fd], 0, sizeof(useropen));
+}
+
 int main()
 {
     printf("Welcome to beta filesystem!\n%s\n", Version);
     startsys();
-    // my_ls();
-    // my_cd("233");
-    // my_mkdir("233");
-    // my_cd("233");
-    // printf("%s\n", currentdir);
-    // my_rmdir("233");
-    // my_cd("..");
-    // printf("%s\n", currentdir);
-    my_create("test.ve");
+    my_create("test.cc");
+    printf("now:/%s\n", currentdir);
     my_ls();
-    my_open("test.ve");
-    my_rm("test.ve");
-    my_ls();
+    
+    my_open("test.cc");
+    my_close(1);
+    
 }
