@@ -2,7 +2,7 @@
 #define SIZE 1024000 //总大小
 #define END 65535 
 #define FREE 0
-#define MAXOPENFILE 10
+#define MAXOPENFILE 10 //最大打开数目
 #define FCBNUM 32 // FCB 数量
 #define MAXDEPTH 32
 #define Version "FileSystem_0.0.1"
@@ -22,7 +22,7 @@ typedef struct FCB
     int useless;
     char free; //0 free 1 located
 }fcb, *pFcb;
-#pragma pack()
+#pragma pack(8)
 
 typedef struct FAT
 {
@@ -77,4 +77,9 @@ enum
 {
     FILE_SYSTEM_SET_FAT_OK,
     FILE_SYSTEM_SET_FAT_ERROR
+};
+
+enum{
+    free_fcb,
+    located_fcb
 };
