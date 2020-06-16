@@ -1,10 +1,9 @@
-#define BLOCKSIZE 1024
-#define SIZE 1024000
-#define END 65535
+#define BLOCKSIZE 1024 // 磁盘块大小
+#define SIZE 1024000 //总大小
+#define END 65535 
 #define FREE 0
-#define ROOTBLOCKNUM 2
 #define MAXOPENFILE 10
-#define FCBNUM 32
+#define FCBNUM 32 // FCB 数量
 #define MAXDEPTH 32
 #define Version "FileSystem_0.0.1"
  
@@ -45,12 +44,12 @@ typedef struct USEROPEN
     char topenfile;
 }useropen, *pUseropen;
 
-typedef struct BLOCK0
-{
-    char information[200];
-    unsigned short root;
-    unsigned char *startblock;
-}block0, *pBlock0;
+// typedef struct BLOCK0
+// {
+//     char information[200];
+//     unsigned short root;
+//     unsigned char *startblock;
+// }block0, *pBlock0;
 
 typedef struct funcStruct
 {
