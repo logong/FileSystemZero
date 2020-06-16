@@ -10,7 +10,6 @@
  
 
 
-#define PrintError(message,format) fprintf(stderr, "%s:%d: " format " \n", __FILE__, __LINE__, message);
 
 typedef struct FCB
 {
@@ -69,6 +68,10 @@ unsigned char *startp;
 char buf[BLOCKSIZE];
 
 char *typeStr[] = {"dir", "file"};
+
+
+void my_format();
+void startsys();
 
 
 enum 

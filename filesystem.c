@@ -33,10 +33,7 @@ void initDirFCB(pFcb dirFCB, char *name, unsigned short date, unsigned short tim
 unsigned short SetFatTable(int index, unsigned short status)
 {
     if (index > SIZE / BLOCKSIZE)
-    {
-        PrintError("set FAT ERROR", "%s");
         return FILE_SYSTEM_SET_FAT_ERROR;
-    }
     pFat start = (pFat) & (myvhard[1 * BLOCKSIZE]);  //FAT1
     pFat start2 = (pFat) & (myvhard[3 * BLOCKSIZE]); //FAT2
     (start + index)->id = status;
@@ -59,17 +56,38 @@ void FcbToUser(pFcb tempFCB, pUseropen tempUSEROPEN)
     tempUSEROPEN->topenfile = 1;
 }
 
+
+void ParseFileName(char **parseList, char *location)
+{
+    int i = 0;
+    char *tempLoc = location;
+    while((tempLoc = strchr(location, '/')))
+    {
+        int length = (tempLoc-location)?(tempLoc-location):1;
+        char *temp = (char*)malloc(sizeof(char) * (length + 1));
+        memcpy(temp, location, length);
+        temp[length] = 0;
+        parseList[i++] = temp;
+        while(*(location = ++tempLoc) == '/');
+    }
+    if(*location)
+    {
+        parseList[i] = strdup(location);
+    }
+}
+
+
 /*
         1        3       5 
         |   1    |   2   |root|
 */
 void my_format()
 {
-    unsigned date, time_;
+    unsigned short date, time_;
     memset(&myvhard[1 * BLOCKSIZE], FREE, BLOCKSIZE * 2); //FAT1
     memset(&myvhard[3 * BLOCKSIZE], FREE, BLOCKSIZE * 2); //FAT2
     memset(&myvhard[5 * BLOCKSIZE], FREE, BLOCKSIZE);     //ROOT
-    getDataAndTime(date, time_);
+    getDataAndTime(&date, &time_);
     pFcb root = (pFcb)&myvhard[5 * BLOCKSIZE];
     initDirFCB(root, "/", date, time_, 5);
     initDirFCB(root + 1, ".", date, time_, 5);
@@ -98,20 +116,56 @@ void startsys()
         curdir = 0;
         startp = &myvhard[5 * BLOCKSIZE];
     }
-    strcpy(currentdir, "/");
+    printf("%s",&currentdir[0]);
     memset(openfilelist, 0, sizeof(useropen) * 10);
     FcbToUser((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
 }
 
-void test()
+void my_ls(void)
 {
-    unsigned short date, time_;
-    getDataAndTime(&date, &time_);
-    printf("time : %d \n, data %d", time_, date);
+    int index = openfilelist[curdir].fatIndex;
+    for( ; index != END; index = ((pFat)(&myvhard[1 * BLOCKSIZE]) + index)->id)
+    {
+        for(int i = (index==5?1:0); i < FCBNUM; i++)
+        {
+            pFcb tempFcb = ((pFcb)&myvhard[index * BLOCKSIZE]) + i;
+            if(!tempFcb->free) continue;
+            if(tempFcb->exname[0] != '\x00')
+            {
+                printf("%s.%s\t%d.%d.%d:%d:%d:%d\t%d\t%s\n", \
+                    tempFcb->filename, \
+                    tempFcb->exname, \
+                    ((tempFcb->date >> 9) & 0b1111111) + 1980, \
+                    (tempFcb->date >> 5) & 0b1111, \
+                    (tempFcb->date & 0b11111),
+                    (tempFcb->time >> 11) & 0b11111,
+                    (tempFcb->time >> 4) & 0b111111,
+                    tempFcb->time & 0b1111,
+                    tempFcb->length,
+                    typeStr[tempFcb->attribute]);
+            }
+            else
+            {
+                printf("%s\t%d.%d.%d:%d:%d:%d\t%d\t%s\n", \
+                    tempFcb->filename, \
+                    ((tempFcb->date >> 9) & 0b1111111) + 1980, \
+                    (tempFcb->date >> 5) & 0b1111, \
+                    (tempFcb->date & 0b11111),
+                    (tempFcb->time >> 11) & 0b11111,
+                    (tempFcb->time >> 4) & 0b111111,
+                    tempFcb->time & 0b1111,
+                    tempFcb->length,
+                    typeStr[tempFcb->attribute]);
+            }
+        }
+    }
 }
+
+
 
 int main()
 {
-    test();
-    printf("Welcome to beta filesystem!\n");
+    printf("Welcome to beta filesystem!\n %s\n" , Version);
+    startsys();
+    my_ls();
 }
