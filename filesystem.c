@@ -839,6 +839,8 @@ void help()
     rm        删除文件\n\
     open      打开文件\n\
     close     关闭文件\n\
+    read      读文件\n\
+    write     写文件\n\
     exit      退出系统\n");
 }
 
@@ -848,11 +850,11 @@ int main()
     printf("input 'help' to get more information\n\n\n");
     startsys();
     int len;
-    char *cmd;
+    char cmd[10];
     char command[50];
     while (1)
     {
-        printf(">");
+        printf("%s>",currentdir);
         scanf("%s", cmd);
         if (!strcmp(cmd, "help"))
         {
@@ -886,7 +888,7 @@ int main()
         else if (!strcmp(cmd, "close"))
         {
             scanf("%s", command);
-            my_close(1);
+            my_close(atoi(command));
         }
         else if (!strcmp(cmd, "cd"))
         {
@@ -896,6 +898,14 @@ int main()
         else if (!strcmp(cmd, "ls"))
         {
             my_ls();
+        }
+        else if (!strcmp(cmd, "read")){
+            scanf("%s,%d",command,&len);
+            my_read(atoi(command),len);
+        }
+        else if (!strcmp(cmd, "write")){
+            scanf("%s",command);
+            my_write(atoi(command));
         }
         else
         {
