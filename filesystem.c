@@ -832,23 +832,63 @@ int my_read(int fd, int len)
     return ret;
 }
 
+void help(){
+    print("mkdir     创建子目录\n
+    rmdir     删除子函数\n
+    create    创建文件\n
+    rm        删除文件\n
+    open      打开文件\n
+    close     关闭文件\n
+    exit      退出系统\n"
+}
+
 int main()
 {
     printf("Welcome to beta filesystem!\n%s\n", Version);
+    printf("input 'help' to get more information\n\n\n");
     startsys();
-    my_create("test.cc");
-    printf("now:/%s\n", currentdir);
-    my_ls();
-
-    my_open("test.cc");
-    my_write(1);
-    my_close(1);
-
-    my_open("test.cc");
-    printf("read:");
-    my_read(1,10);
-    my_close(1);
-    my_rm("test.cc");
-    my_ls();
-    getchar();
+    int len;
+    char *cmd;
+    char command[50];
+    while(1){
+        printf(">");
+        scanf_s("%s",cmd);
+        if(!strcmp(cmd,"help")){
+            help();
+        }
+        else if(!strcmp(cmd,"mkdir")){
+            scanf_s("%s",command);
+            my_mkdir(command);
+        }
+        else if(!strcmp(cmd,"rmdir")){
+            scanf_s("%s",command);
+            my_rmdir(command);
+        }
+        else if(!strcmp(cmd,"exit")){
+            exitsys()
+        }
+        else if(!strcmp(cmd,"create")){
+            scanf_s("%s",command);
+            my_create(command);
+        }
+        else if(!strcmp(cmd,"rm")){
+            scanf_s("%s",command);
+            my_rm(command);
+        }
+        else if(!strcmp(cmd,"open")){
+            scanf_s("%s",command);
+            my_open(command);
+        }
+        else if(!strcmp(cmd,"close")){
+            scanf_s("%s",command);
+            my_close(int(command));
+        }
+        else if(!strcmp(cmd,"cd")){
+            scanf_s("%s",command);
+            my_cd(command);
+        }
+        else {
+            printf("The cmd is not exit\nplease input 'help' to get some help\n");
+        }
+    }
 }
