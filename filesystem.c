@@ -371,9 +371,7 @@ void my_format()
     initDirFCB(root + 2, "..", date, time_, 5);
     root->length = 3 * sizeof(fcb);
     (root + 1)->length = 3 * sizeof(fcb);
-
     FcbToUser((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
-
     if (SetFatTable(5, END) == FILE_SYSTEM_SET_FAT_ERROR) // can not format Virtual disk , free it
         free(myvhard);
 }
@@ -852,7 +850,6 @@ int main()
     int len;
     char *cmd;
     char command[50];
-    cmd = command;
     while (1)
     {
         printf(">");
@@ -895,6 +892,10 @@ int main()
         {
             scanf("%s", command);
             my_cd(command);
+        }
+        else if (!strcmp(cmd, "ls"))
+        {
+            my_ls();
         }
         else
         {
