@@ -40,7 +40,7 @@ typedef struct USEROPEN
     unsigned long length;
     char dir[80];
     int count;
-    char fcbstate;
+    char fcbstate; //0 free 1 located
     char topenfile;
 }useropen, *pUseropen;
 

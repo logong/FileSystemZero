@@ -5,11 +5,23 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include "filesystem.h"
+
 void parseLocation(char **parseList, char *location);             // 解析路径
 void getDateAndTime(unsigned short *date, unsigned short *time_); //获取时间 和 日期
 void getAbsPath(char *Path, char *ret, bool isDir);               //获取绝对路径
+
 pFcb FindFreeFCB(pFcb DirFCB);                                    //找到空闲FCB
 pFcb ExFcb(pFcb DirFCB);                                          //拓展FCB
+
+
+int do_write(int fd, char *text, int len, char wstyle); //实际写文件函数
+int my_write(int fd);
+
+int do_read(int fd, int len, char *text);
+int my_read(int fd , int len);  //读取Len字节 数据
+
+
+
 
 void getDateAndTime(unsigned short *date, unsigned short *time_)
 {
@@ -647,28 +659,164 @@ void my_open(char *filename)
 void my_close(int fd)
 {
     pFcb File, fileFCB;
-    char path[80] = {0, };
-    if(!openfilelist[fd].topenfile)
+    char path[80] = {
+        0,
+    };
+    if (!openfilelist[fd].topenfile)
     {
         printf("This fd is invalid!\n");
         return;
     }
     strcpy(path, openfilelist[fd].dir);
     strcat(path, openfilelist[fd].filename);
-    printf("%s",path);
-    if(openfilelist[fd].exname[0])
+    if (openfilelist[fd].exname[0])
     {
         strcat(path, ".");
         strcat(path, openfilelist[fd].exname);
     }
     fileFCB = FindFcb(path, &File);
-    if(!fileFCB)
+    if (!fileFCB)
     {
         printf("Can not find file\n");
         return;
     }
-    if(openfilelist[fd].fcbstate) fileFCB->length = openfilelist[fd].length;
+    if (openfilelist[fd].fcbstate)
+        fileFCB->length = openfilelist[fd].length;
     memset(&openfilelist[fd], 0, sizeof(useropen));
+}
+
+int my_write(int fd)
+{
+    char *tempBuf = (char *)malloc(sizeof(char) * BLOCKSIZE), tempChar; //缓冲区
+    int bufNum = 1, index = 0;
+    if (!openfilelist[fd].topenfile || !openfilelist[fd].attribute)
+    {
+        printf("This fd is invalid!\n");
+        return -1;
+    }
+    char choice;
+    printf("Please choose one way to input(a, w or +)\n");
+    scanf("%c", &choice);
+    getchar();
+    printf("Now Please input: \n");
+    while (read(STDIN_FILENO, &tempChar, 1) != 0) // 申请1024字节大小的空间
+    {
+        tempBuf[index++] = tempChar;
+        if (!(index % 1024) && index != 0)
+            tempBuf = realloc(tempBuf, BLOCKSIZE * (++bufNum));
+    }
+
+    tempBuf[index] = 0;
+    int ret = do_write(fd, tempBuf, index, choice);
+    free(tempBuf);
+    return ret;
+}
+int do_write(int fd, char *text, int len, char wstyle)
+{
+    int ret = len, temp;
+    int index = openfilelist[fd].fatIndex;
+    char buf[BLOCKSIZE] = {
+        0,
+    };
+    switch (wstyle)
+    {
+    case '+':
+        openfilelist[fd].count = openfilelist[fd].length;
+        break;
+    case 'w':
+        openfilelist[fd].count = 0;
+        break;
+    case 'a':
+        break;
+    default:
+        printf("No such mode!\n");
+        return -1;
+    }
+    for (int i = 0; i < openfilelist[fd].count / BLOCKSIZE; i++) //根据文件大小 申请大小 , 每次1024
+    {
+        temp = index;
+        index = ((pFat) & (myvhard[BLOCKSIZE * 1]) + index)->id;
+    }
+
+    while (len > 0)
+    {
+        if (index == END)
+        {
+            int tempIndex = FindFreeBlock();
+            SetFatTable(temp, tempIndex);
+            SetFatTable(tempIndex, END);
+            index = tempIndex;
+        }
+        int offset = openfilelist[fd].count % BLOCKSIZE;
+        if (offset)
+            memcpy(buf, &myvhard[BLOCKSIZE * index], BLOCKSIZE);
+        int writeLength = len < BLOCKSIZE ? len : BLOCKSIZE - offset; //将读写指针转化为逻辑块块号和块内偏移 off，并进一步得到其磁盘块号
+        memcpy(buf + offset, text, writeLength);                      // 写入数据
+        memcpy(&myvhard[BLOCKSIZE * index], buf, writeLength);
+        openfilelist[fd].count += writeLength;
+        len -= writeLength;
+        temp = index;
+        index = ((pFat)(&myvhard[BLOCKSIZE * 1]) + index)->id;
+    }
+    index = openfilelist[fd].fatIndex;
+    openfilelist[fd].fcbstate = 1;
+
+    if (wstyle == 'w' && openfilelist[fd].count < openfilelist[fd].length)
+    {
+        int orgNum = openfilelist[fd].length / BLOCKSIZE;
+        int purNum = openfilelist[fd].count / BLOCKSIZE;
+        for (int i = 0; i < purNum; i++)
+            index = ((pFat)(&myvhard[BLOCKSIZE * 1]) + index)->id;
+        temp = ((pFat)(&myvhard[BLOCKSIZE * 1]) + index)->id;
+        SetFatTable(index, END);
+        index = temp;
+        for (int i = 0, temp = 0; i < orgNum - purNum; i++)
+        {
+            temp = index;
+            index = ((pFat)(&myvhard[BLOCKSIZE * 1]) + index)->id;
+            SetFatTable(temp, 0);
+        }
+    }
+    openfilelist[fd].length = openfilelist[fd].count;
+    return ret;
+}
+int do_read(int fd, int len, char *text)
+{
+    printf("%d\n", len);
+    int maxLen = openfilelist[fd].length - openfilelist[fd].count;
+    printf("%ld, %d\n",openfilelist[fd].length, openfilelist[fd].count);
+    int ret, length = ret = len>maxLen?maxLen:len;
+    int logicOffset = openfilelist[fd].count % BLOCKSIZE;
+    int logicIndex = openfilelist[fd].count / BLOCKSIZE;
+    char *readBuf = (char*)malloc(sizeof(char) * BLOCKSIZE);
+    int index = openfilelist[fd].fatIndex; //获取打开函数 index
+   
+    for(int i = 0; i < logicIndex; i++) index = ((pFat)(&myvhard[1 * BLOCKSIZE]) + i)->id;
+    while(length > BLOCKSIZE)
+    { //将读指针转化为逻辑块块号及块内偏移量 off
+        memcpy(readBuf, &myvhard[BLOCKSIZE * index], BLOCKSIZE);
+        memcpy(text, readBuf + logicOffset, BLOCKSIZE - logicOffset);
+        length -= (BLOCKSIZE - logicOffset);
+        logicOffset = 0;
+        index = ((pFat)(&myvhard[1 * BLOCKSIZE]) + index)->id;
+    }
+    memcpy(readBuf, &myvhard[BLOCKSIZE * index], BLOCKSIZE); // 从硬盘读取数据
+    memcpy(text, readBuf, length);
+    return ret;
+}
+
+int my_read(int fd, int len)
+{
+    char *text = (char*)malloc(sizeof(char) * len);
+    if(!openfilelist[fd].topenfile || !openfilelist[fd].attribute)
+    {
+        printf("This fd is invalid!\n");
+        return -1;
+    }
+    int ret = do_read(fd, len, text);
+    printf("%d\n", ret);
+    for(int i = 0; i < ret; i++) write(STDOUT_FILENO, &text[i], 1);
+    return ret;
 }
 
 int main()
@@ -678,8 +826,16 @@ int main()
     my_create("test.cc");
     printf("now:/%s\n", currentdir);
     my_ls();
-    
+
     my_open("test.cc");
+    my_write(1);
     my_close(1);
-    
+
+    my_open("test.cc");
+    printf("read:");
+    my_read(1,10);
+    my_close(1);
+    my_rm("test.cc");
+    my_ls();
+    getchar();
 }
