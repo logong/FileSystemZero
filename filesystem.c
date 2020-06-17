@@ -3,38 +3,36 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
-#include <unistd.h>1
+#include <unistd.h>
 #include "filesystem.h"
 
 void parseLocation(char **parseList, char *location);             // 解析路径
 void getDateAndTime(unsigned short *date, unsigned short *time_); //获取时间 和 日期
 void getAbsPath(char *Path, char *ret, bool isDir);               //获取绝对路径
 
-pFcb FindFreeFCB(pFcb DirFCB);                                    //找到空闲FCB
-pFcb ExFcb(pFcb DirFCB);                                          //拓展FCB
-unsigned short SetFatTable(int index, unsigned short status);     //设置FAT表
-void FcbToUser(pFcb tempFCB, pUseropen tempUSEROPEN);             //FCB 写到用户打开表
-int FindFreeBlock();               
-void splitPath(char *Path, char *dir, char *filename, char *exname); // 分离路径               
-pFcb TraverseDir(int fat_index, char *filename, char *exname);       // 遍历dir    
-int getFreeOpen();//找到空闲用户表
+pFcb FindFreeFCB(pFcb DirFCB);                                //找到空闲FCB
+pFcb ExFcb(pFcb DirFCB);                                      //拓展FCB
+unsigned short SetFatTable(int index, unsigned short status); //设置FAT表
+void FcbToUser(pFcb tempFCB, pUseropen tempUSEROPEN);         //FCB 写到用户打开表
+int FindFreeBlock();
+void splitPath(char *Path, char *dir, char *filename, char *exname);                         // 分离路径
+pFcb TraverseDir(int fat_index, char *filename, char *exname);                               // 遍历dir
+int getFreeOpen();                                                                           //找到空闲用户表
 void initDirFCB(pFcb File, char *name, unsigned short date, unsigned short time, int index); // 初始化Dir
-void initNormalFCB(pFcb fileFCB, char *name, char *exname, unsigned short date, unsigned short time,unsigned long length, int index);
-
+void initNormalFCB(pFcb fileFCB, char *name, char *exname, unsigned short date, unsigned short time, unsigned long length, int index);
 
 void my_format();
 
 int do_write(int fd, char *text, int len, char wstyle); //实际写文件函数
 int my_write(int fd);
 int do_read(int fd, int len, char *text);
-int my_read(int fd , int len);  //读取Len字节 数据
+int my_read(int fd, int len); //读取Len字节 数据
 void startsys();
 void my_mkdir(char *dirname);
 void my_cd(char *dirname);
 void my_rmdir(char *dirname);
 void my_ls();
 void my_create(char *filename);
-
 
 void getDateAndTime(unsigned short *date, unsigned short *time_)
 {
@@ -797,15 +795,16 @@ int do_read(int fd, int len, char *text)
 {
     printf("%d\n", len);
     int maxLen = openfilelist[fd].length - openfilelist[fd].count;
-    printf("%ld, %d\n",openfilelist[fd].length, openfilelist[fd].count);
-    int ret, length = ret = len>maxLen?maxLen:len;
+    printf("%ld, %d\n", openfilelist[fd].length, openfilelist[fd].count);
+    int ret, length = ret = len > maxLen ? maxLen : len;
     int logicOffset = openfilelist[fd].count % BLOCKSIZE;
     int logicIndex = openfilelist[fd].count / BLOCKSIZE;
-    char *readBuf = (char*)malloc(sizeof(char) * BLOCKSIZE);
+    char *readBuf = (char *)malloc(sizeof(char) * BLOCKSIZE);
     int index = openfilelist[fd].fatIndex; //获取打开函数 index
-   
-    for(int i = 0; i < logicIndex; i++) index = ((pFat)(&myvhard[1 * BLOCKSIZE]) + i)->id;
-    while(length > BLOCKSIZE)
+
+    for (int i = 0; i < logicIndex; i++)
+        index = ((pFat)(&myvhard[1 * BLOCKSIZE]) + i)->id;
+    while (length > BLOCKSIZE)
     { //将读指针转化为逻辑块块号及块内偏移量 off
         memcpy(readBuf, &myvhard[BLOCKSIZE * index], BLOCKSIZE);
         memcpy(text, readBuf + logicOffset, BLOCKSIZE - logicOffset);
@@ -820,26 +819,29 @@ int do_read(int fd, int len, char *text)
 
 int my_read(int fd, int len)
 {
-    char *text = (char*)malloc(sizeof(char) * len);
-    if(!openfilelist[fd].topenfile || !openfilelist[fd].attribute)
+    char *text = (char *)malloc(sizeof(char) * len);
+    if (!openfilelist[fd].topenfile || !openfilelist[fd].attribute)
     {
         printf("This fd is invalid!\n");
         return -1;
     }
     int ret = do_read(fd, len, text);
     printf("%d\n", ret);
-    for(int i = 0; i < ret; i++) write(STDOUT_FILENO, &text[i], 1);
+    for (int i = 0; i < ret; i++)
+        write(STDOUT_FILENO, &text[i], 1);
     return ret;
 }
 
-void help(){
-    print("mkdir     创建子目录\n
-    rmdir     删除子函数\n
-    create    创建文件\n
-    rm        删除文件\n
-    open      打开文件\n
-    close     关闭文件\n
-    exit      退出系统\n"
+void help()
+{
+    printf("\
+    mkdir     创建子目录\n\
+    rmdir     删除子函数\n\
+    create    创建文件\n\
+    rm        删除文件\n\
+    open      打开文件\n\
+    close     关闭文件\n\
+    exit      退出系统\n");
 }
 
 int main()
@@ -850,44 +852,52 @@ int main()
     int len;
     char *cmd;
     char command[50];
-    while(1){
+    cmd = command;
+    while (1)
+    {
         printf(">");
-        scanf_s("%s",cmd);
-        if(!strcmp(cmd,"help")){
+        scanf("%s", cmd);
+        if (!strcmp(cmd, "help"))
+        {
             help();
         }
-        else if(!strcmp(cmd,"mkdir")){
-            scanf_s("%s",command);
+        else if (!strcmp(cmd, "mkdir"))
+        {
+            scanf("%s", command);
             my_mkdir(command);
         }
-        else if(!strcmp(cmd,"rmdir")){
-            scanf_s("%s",command);
+        else if (!strcmp(cmd, "rmdir"))
+        {
+            scanf("%s", command);
             my_rmdir(command);
         }
-        else if(!strcmp(cmd,"exit")){
-            exitsys()
-        }
-        else if(!strcmp(cmd,"create")){
-            scanf_s("%s",command);
+        else if (!strcmp(cmd, "create"))
+        {
+            scanf("%s", command);
             my_create(command);
         }
-        else if(!strcmp(cmd,"rm")){
-            scanf_s("%s",command);
+        else if (!strcmp(cmd, "rm"))
+        {
+            scanf("%s", command);
             my_rm(command);
         }
-        else if(!strcmp(cmd,"open")){
-            scanf_s("%s",command);
+        else if (!strcmp(cmd, "open"))
+        {
+            scanf("%s", command);
             my_open(command);
         }
-        else if(!strcmp(cmd,"close")){
-            scanf_s("%s",command);
-            my_close(int(command));
+        else if (!strcmp(cmd, "close"))
+        {
+            scanf("%s", command);
+            my_close(1);
         }
-        else if(!strcmp(cmd,"cd")){
-            scanf_s("%s",command);
+        else if (!strcmp(cmd, "cd"))
+        {
+            scanf("%s", command);
             my_cd(command);
         }
-        else {
+        else
+        {
             printf("The cmd is not exit\nplease input 'help' to get some help\n");
         }
     }
