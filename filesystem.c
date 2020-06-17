@@ -836,6 +836,18 @@ int my_read(int fd, int len)
     return ret;
 }
 
+void myexitsys()
+{
+    FILE *fp = fopen("temp.dmp", "wb");
+    if (fp)
+    {
+        fwrite(myvhard, SIZE, 1, fp);
+    }else{
+        printf("write disk wrong");
+    }
+    close(fp);
+    free(myvhard);
+}
 void help()
 {
     printf("\
