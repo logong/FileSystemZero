@@ -73,6 +73,11 @@ void my_format();
 void startsys();
 
 
+
+enum{
+    dir_type,
+    file_type
+};
 enum 
 {
     FILE_SYSTEM_SET_FAT_OK,

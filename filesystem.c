@@ -13,7 +13,7 @@ void getAbsPath(char *Path, char *ret, bool isDir);               //获取绝对
 pFcb FindFreeFCB(pFcb DirFCB);                                //找到空闲FCB
 pFcb ExFcb(pFcb DirFCB);                                      //拓展FCB
 unsigned short SetFatTable(int index, unsigned short status); //设置FAT表
-void FcbToUser(pFcb tempFCB, pUseropen tempUSEROPEN);         //FCB 写到用户打开表
+void FcbtoUserOpen(pFcb tempFCB, pUseropen tempUSEROPEN);         //FCB 写到用户打开表
 int FindFreeBlock();
 void splitPath(char *Path, char *dir, char *filename, char *exname);                         // 分离路径
 pFcb TraverseDir(int fat_index, char *filename, char *exname);                               // 遍历dir
@@ -152,7 +152,7 @@ unsigned short SetFatTable(int index, unsigned short status)
     return FILE_SYSTEM_SET_FAT_OK;
 }
 
-void FcbToUser(pFcb tempFCB, pUseropen tempUSEROPEN)
+void FcbtoUserOpen(pFcb tempFCB, pUseropen tempUSEROPEN)
 {
     memcpy(tempUSEROPEN->filename, tempFCB->filename, sizeof(tempFCB->filename));
     memcpy(tempUSEROPEN->exname, tempFCB->exname, sizeof(tempFCB->exname));
@@ -371,7 +371,7 @@ void my_format()
     initDirFCB(root + 2, "..", date, time_, 5);
     root->length = 3 * sizeof(fcb);
     (root + 1)->length = 3 * sizeof(fcb);
-    FcbToUser((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
+    FcbtoUserOpen((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
     if (SetFatTable(5, END) == FILE_SYSTEM_SET_FAT_ERROR) // can not format Virtual disk , free it
         free(myvhard);
 }
@@ -392,25 +392,25 @@ void startsys()
         startp = &myvhard[5 * BLOCKSIZE];
     }
     memset(openfilelist, 0, sizeof(useropen) * 10);
-    FcbToUser((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
+    FcbtoUserOpen((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
 }
 
 void my_mkdir(char *dirname)
 {
-    char *temp[MAXDEPTH] = {
+    char *left_path[MAXDEPTH] = {
         0,
     };
     int length;
     pFcb dirFcb = NULL;
     unsigned short date, time;
     int index;
-    parseLocation(temp, dirname);
+    parseLocation(left_path, dirname);
     if (FindFcb(dirname, &dirFcb))
     {
         printf("%s: It's already exist!\n", dirname);
         return;
     }
-    for (length = 0; temp[length++];)
+    for (length = 0; left_path[length++];)
         ;
     length--;
     if (!dirFcb)
@@ -433,13 +433,13 @@ void my_mkdir(char *dirname)
     ((pFcb) & (myvhard[BLOCKSIZE * index]))->length = 2 * sizeof(fcb); // 为 . .. 分配空间
 
     pFcb newDirFCB = FindFreeFcb(dirFcb);
-    initDirFCB(newDirFCB, temp[--length], date, time, index);
+    initDirFCB(newDirFCB, left_path[--length], date, time, index);
     newDirFCB->length = 2 * sizeof(fcb);
     dirFcb->length += sizeof(fcb);
     if (dirFcb->fatIndex == 5)
         (dirFcb + 1)->length += sizeof(fcb);
-    for (int i = 0; temp[i];
-         free(temp[i++]))
+    for (int i = 0; left_path[i];
+         free(left_path[i++]))
         ;
 }
 
@@ -453,7 +453,7 @@ void my_cd(char *dirname)
     }
     if (temp)
     {
-        if (temp->attribute)
+        if (temp->attribute != dir_type )
         {
             printf("%s: Not such dictonary!\n", dirname);
             return;
@@ -461,7 +461,7 @@ void my_cd(char *dirname)
         int tempNum = curdir;
         curdir = getFreeOpen();
         memset(&openfilelist[tempNum], 0, sizeof(useropen));
-        FcbToUser(temp, &openfilelist[curdir]);
+        FcbtoUserOpen(temp, &openfilelist[curdir]);
         getAbsPath(dirname, currentdir, true);
     }
 }
@@ -662,7 +662,7 @@ void my_open(char *filename)
     }
     int index = getFreeOpen(); // 寻找空闲文件描述符
     printf("fd: %d\n", index);
-    FcbToUser(File, &openfilelist[index]);
+    FcbtoUserOpen(File, &openfilelist[index]);
     strcpy(openfilelist[index].dir, dir);
 }
 void my_close(int fd)
@@ -705,13 +705,15 @@ int my_write(int fd)
     }
     char choice;
     printf("Please choose one way to input(a, w or +)\n");
+    getchar();
     scanf("%c", &choice);
+    printf("choice: %c\n",choice);
     getchar();
     printf("Now Please input: \n");
     while (read(STDIN_FILENO, &tempChar, 1) != 0) // 申请1024字节大小的空间
     {
         tempBuf[index++] = tempChar;
-        if (!(index % 1024) && index != 0)
+        if (!(index % BLOCKSIZE) && index != 0)
             tempBuf = realloc(tempBuf, BLOCKSIZE * (++bufNum));
     }
 
@@ -791,9 +793,8 @@ int do_write(int fd, char *text, int len, char wstyle)
 }
 int do_read(int fd, int len, char *text)
 {
-    printf("%d\n", len);
     int maxLen = openfilelist[fd].length - openfilelist[fd].count;
-    printf("%ld, %d\n", openfilelist[fd].length, openfilelist[fd].count);
+    printf("len: %ld, count: %d\n", openfilelist[fd].length, openfilelist[fd].count);
     int ret, length = ret = len > maxLen ? maxLen : len;
     int logicOffset = openfilelist[fd].count % BLOCKSIZE;
     int logicIndex = openfilelist[fd].count / BLOCKSIZE;
@@ -818,13 +819,18 @@ int do_read(int fd, int len, char *text)
 int my_read(int fd, int len)
 {
     char *text = (char *)malloc(sizeof(char) * len);
+    if( fd >= MAXOPENFILE)
+    {
+        printf("too many open file");
+        return -1;
+    }
     if (!openfilelist[fd].topenfile || !openfilelist[fd].attribute)
     {
         printf("This fd is invalid!\n");
         return -1;
     }
     int ret = do_read(fd, len, text);
-    printf("%d\n", ret);
+    //printf("%d\n", ret);
     for (int i = 0; i < ret; i++)
         write(STDOUT_FILENO, &text[i], 1);
     return ret;
@@ -850,7 +856,7 @@ int main()
     printf("input 'help' to get more information\n\n\n");
     startsys();
     int len;
-    char cmd[10];
+    char cmd[50];
     char command[50];
     while (1)
     {
@@ -913,3 +919,18 @@ int main()
         }
     }
 }
+
+// int main()
+// {
+//  printf("Welcome to beta filesystem!\n%s\n", Version);
+//     printf("input 'help' to get more information\n\n\n");
+//     startsys();
+
+//     my_create("test.c");
+//     my_open("test.c");
+//     my_write(1);
+//     my_close(1);
+//      my_open("test.c");
+//     my_read(1,10);
+//     my_close(1);
+// }
