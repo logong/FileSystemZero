@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
-#include <unistd.h>
+#include <unistd.h>1
 #include "filesystem.h"
 
 void parseLocation(char **parseList, char *location);             // 解析路径
@@ -12,15 +12,28 @@ void getAbsPath(char *Path, char *ret, bool isDir);               //获取绝对
 
 pFcb FindFreeFCB(pFcb DirFCB);                                    //找到空闲FCB
 pFcb ExFcb(pFcb DirFCB);                                          //拓展FCB
+unsigned short SetFatTable(int index, unsigned short status);     //设置FAT表
+void FcbToUser(pFcb tempFCB, pUseropen tempUSEROPEN);             //FCB 写到用户打开表
+int FindFreeBlock();               
+void splitPath(char *Path, char *dir, char *filename, char *exname); // 分离路径               
+pFcb TraverseDir(int fat_index, char *filename, char *exname);       // 遍历dir    
+int getFreeOpen();//找到空闲用户表
+void initDirFCB(pFcb File, char *name, unsigned short date, unsigned short time, int index); // 初始化Dir
+void initNormalFCB(pFcb fileFCB, char *name, char *exname, unsigned short date, unsigned short time,unsigned long length, int index);
 
+
+void my_format();
 
 int do_write(int fd, char *text, int len, char wstyle); //实际写文件函数
 int my_write(int fd);
-
 int do_read(int fd, int len, char *text);
 int my_read(int fd , int len);  //读取Len字节 数据
-
-
+void startsys();
+void my_mkdir(char *dirname);
+void my_cd(char *dirname);
+void my_rmdir(char *dirname);
+void my_ls();
+void my_create(char *filename);
 
 
 void getDateAndTime(unsigned short *date, unsigned short *time_)
