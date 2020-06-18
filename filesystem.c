@@ -93,6 +93,9 @@ void getAbsPath(char *Path, char *ret, bool isDir)
     if (!isDir)
     {
         ret[strlen(ret) + 1] = '\0';
+        if(ret[strlen(ret) - 1]  == '/') // 截断 /bin.c/
+            ret[strlen(ret) -1]  = '\0';
+
     }
     for (int i = 0; ori[i];
          free(ori[i++]))
@@ -391,6 +394,7 @@ void startsys()
         curdir = 0;
         startp = &myvhard[5 * BLOCKSIZE];
     }
+    strcpy(currentdir, "/");
     memset(openfilelist, 0, sizeof(useropen) * 10);
     FcbtoUserOpen((pFcb)&myvhard[5 * BLOCKSIZE], &openfilelist[0]);
 }
@@ -642,7 +646,6 @@ void my_open(char *filename)
          };
     pFcb File;
     getAbsPath(filename, path, false);
-    splitPath(path, dir, name, exname);
     for (int i = 0; i < MAXOPENFILE; i++)
     {
         if (!openfilelist[i].topenfile)
@@ -705,10 +708,19 @@ int my_write(int fd)
     }
     char choice;
     printf("Please choose one way to input(a, w or +)\n");
-    getchar();
-    scanf("%c", &choice);
-    printf("choice: %c\n",choice);
-    getchar();
+    while (1)
+    {
+        scanf("%c", &choice);
+        if(choice == 'w' || choice == '+' || choice == 'a')
+        {
+            printf("choice: %c\n",choice);
+            break;
+        }
+        else
+        {
+            printf("No such Mode!\n");
+        }
+    }
     printf("Now Please input: \n");
     while (read(STDIN_FILENO, &tempChar, 1) != 0) // 申请1024字节大小的空间
     {
@@ -793,8 +805,9 @@ int do_write(int fd, char *text, int len, char wstyle)
 }
 int do_read(int fd, int len, char *text)
 {
-    int maxLen = openfilelist[fd].length - openfilelist[fd].count;
     printf("len: %ld, count: %d\n", openfilelist[fd].length, openfilelist[fd].count);
+    int maxLen = openfilelist[fd].length - openfilelist[fd].count;
+    printf("%ld, %d\n",openfilelist[fd].length, openfilelist[fd].count);
     int ret, length = ret = len > maxLen ? maxLen : len;
     int logicOffset = openfilelist[fd].count % BLOCKSIZE;
     int logicIndex = openfilelist[fd].count / BLOCKSIZE;
@@ -819,18 +832,13 @@ int do_read(int fd, int len, char *text)
 int my_read(int fd, int len)
 {
     char *text = (char *)malloc(sizeof(char) * len);
-    if( fd >= MAXOPENFILE)
-    {
-        printf("too many open file");
-        return -1;
-    }
     if (!openfilelist[fd].topenfile || !openfilelist[fd].attribute)
     {
         printf("This fd is invalid!\n");
         return -1;
     }
     int ret = do_read(fd, len, text);
-    //printf("%d\n", ret);
+    printf("%d\n", ret);
     for (int i = 0; i < ret; i++)
         write(STDOUT_FILENO, &text[i], 1);
     return ret;
@@ -845,7 +853,7 @@ void myexitsys()
     }else{
         printf("write disk wrong");
     }
-    close(fp);
+    fclose(fp);
     free(myvhard);
 }
 void help()
@@ -877,6 +885,15 @@ int main()
         if (!strcmp(cmd, "help"))
         {
             help();
+        }
+        if (!strcmp(cmd, "version"))
+        {
+            printf("%s",Version);
+        }
+        else if (!strcmp(cmd, "exit")){
+            myexitsys();
+            printf("Exit!\n");
+            return 0;
         }
         else if (!strcmp(cmd, "mkdir"))
         {
@@ -918,7 +935,8 @@ int main()
             my_ls();
         }
         else if (!strcmp(cmd, "read")){
-            scanf("%s,%d",command,&len);
+            scanf("%s %d",command,&len);
+            int ret = atoi(command);
             my_read(atoi(command),len);
         }
         else if (!strcmp(cmd, "write")){
@@ -929,20 +947,6 @@ int main()
         {
             printf("The cmd is not exit\nplease input 'help' to get some help\n");
         }
+
     }
 }
-
-// int main()
-// {
-//  printf("Welcome to beta filesystem!\n%s\n", Version);
-//     printf("input 'help' to get more information\n\n\n");
-//     startsys();
-
-//     my_create("test.c");
-//     my_open("test.c");
-//     my_write(1);
-//     my_close(1);
-//      my_open("test.c");
-//     my_read(1,10);
-//     my_close(1);
-// }
