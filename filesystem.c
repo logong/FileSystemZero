@@ -847,11 +847,12 @@ int my_read(int fd, int len)
 void myexitsys()
 {
     FILE *fp = fopen("temp.dmp", "wb");
-    if (fp)
+    if (fp&& fwrite(myvhard, SIZE, 1, fp) == 1)
     {
-        fwrite(myvhard, SIZE, 1, fp);
+            printf("File writing succeeded\n");
+        
     }else{
-        printf("write disk wrong");
+        printf("write disk wrong\n");
     }
     fclose(fp);
     free(myvhard);
